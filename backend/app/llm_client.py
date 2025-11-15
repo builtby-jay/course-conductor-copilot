@@ -1,21 +1,41 @@
-from .config import settings
+import os
+import json
+from openai import OpenAI
+
+
+DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.1-mini")
+
+
+def get_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        # This makes it very clear what’s wrong if the var isn’t set
+        raise RuntimeError(
+            "OPENAI_API_KEY is not set. "
+            "Set it in your shell before running uvicorn, e.g.: "
+            "$env:OPENAI_API_KEY='sk-...' in PowerShell."
+        )
+    return OpenAI(api_key=api_key)
+
 
 def call_llm(prompt: str) -> str:
     """
-    Replace this stub with an actual call to Claude/GPT.
-    For hackathon demo, you can mock or log the prompt.
+    Call OpenAI with a simple text prompt and return the output text.
     """
-    # Example (OpenAI-style, commented out):
-    # from openai import OpenAI
-    # client = OpenAI(api_key=settings.llm_api_key)
-    # resp = client.chat.completions.create(
-    #     model=settings.llm_model,
-    #     messages=[
-    #         {"role": "system", "content": "You are a helpful course ops copilot."},
-    #         {"role": "user", "content": prompt},
-    #     ],
-    # )
-    # return resp.choices[0].message.content
+    client = get_client()
+    response = client.responses.create(
+        model=DEFAULT_MODEL,
+        input=prompt,
+    )
+    return response.output_text
 
-    # Temporary stub:
-    return f"[LLM RESPONSE PLACEHOLDER for prompt length {len(prompt)}]"
+
+def call_llm_json(prompt: str) -> dict:
+    """
+    Same as call_llm, but expects JSON and parses it.
+    """
+    text = call_llm(prompt)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return {"raw": text}
