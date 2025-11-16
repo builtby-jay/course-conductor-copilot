@@ -1,0 +1,6 @@
+{
+  "python.defaultInterpreterPath": "C:\\Users\\Jay H\\Documents\\course-conductor-copilot\\course-conductor-copilot\\backend\\venv\\Scripts\\python.exe",
+  "python.analysis.extraPaths": [
+    "C:\\Users\\Jay H\\Documents\\course-conductor-copilot\\course-conductor-copilot\\backend\\venv\\Lib\\site-packages"
+  ]
+}
