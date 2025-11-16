@@ -1,0 +1,17 @@
+[
+  {
+    "page_id": "final_project_overview",
+    "title": "COMM 4520 / GCOM 7520 – Final Project Overview",
+    "content": "In this final group project, students act as a risk-management team developing a cybersecurity risk assessment for an assigned UVA department. The focus is on phishing risk at the employee level, not technical network controls. Students design a Qualtrics survey to gather information from the department's tech lead, analyze a blinded phishing simulation dataset, and propose mitigations aimed at business continuity, UVA's brand, and the integrity of departmental data. Deliverables include: (1) a single PDF risk assessment report, max 5 pages (excluding appendices); (2) a PowerPoint deck; (3) a 15-minute presentation; and (4) a peer-evaluation."
+  },
+  {
+    "page_id": "final_project_deliverables",
+    "title": "Final Project Deliverables & Logistics",
+    "content": "Deliverables: (1) Single PDF document submitted to Blackboard; (2) Single PowerPoint deck submitted to Blackboard; (3) 15-minute presentation; (4) Peer-evaluation on Blackboard. Possible presentation dates include Dec 4th, 6th, 8th, or 12th. Students must submit all materials before their presentation time. The project emphasizes clear, non-technical risk framing and practical recommendations."
+  },
+  {
+    "page_id": "final_project_goals",
+    "title": "Final Project Goals & Scope",
+    "content": "Goals: Conduct a phishing-focused cybersecurity risk assessment for employees in a particular department. Provide a mitigation strategy for the risks that may have the highest impact on business continuity, UVA's brand, and the integrity of departmental data. Students do not need to identify or mitigate technical network risks. Instead, they should focus on people, policies, and processes—such as training, awareness, and incident reporting workflows."
+  }
+]

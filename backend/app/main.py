@@ -1,96 +1,133 @@
+from __future__ import annotations
+
+from typing import List
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from .config import CORS_ORIGINS
 from .models import (
-    IngestRequest, ChangeRequest, UpdateResponse,
-    QARequest, QAResponse
+    CoursePage,
+    IngestPagesRequest,
+    GenerateUpdatesRequest,
+    GenerateUpdatesResponse,
+    QARequest,
+    QAResponse,
 )
-from .storage import replace_pages, build_course_context
 from .llm_client import call_llm
+from .course_loader import load_course_pages
+
 
 app = FastAPI(title="Course Conductor – AI Ops Copilot")
 
-# Allow frontend on localhost
+# Pre-loaded course pages from backend/data/course_pages.json
+COURSE_PAGES: List[CoursePage] = [
+    CoursePage(**p) for p in load_course_pages()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "pages_loaded": len(COURSE_PAGES)}
+
 
 @app.post("/api/ingest-pages")
-def ingest_pages(req: IngestRequest):
-    pages = [p.model_dump() for p in req.pages]
-    replace_pages(pages)
-    return {"status": "ok", "num_pages": len(pages)}
+def ingest_pages(payload: IngestPagesRequest):
+    """
+    Optional: override course pages from frontend.
+    You can ignore this for the demo, since we preload from JSON.
+    """
+    global COURSE_PAGES
+    COURSE_PAGES = payload.pages
+    return {"status": "ok", "pages_loaded": len(COURSE_PAGES)}
 
-@app.post("/api/generate-updates", response_model=UpdateResponse)
-def generate_updates(req: ChangeRequest):
-    context = build_course_context()
+
+def build_course_context(max_chars: int = 8000) -> str:
+    """
+    Flatten the course pages into a single context string for Gemini.
+    """
+    chunks = []
+    for page in COURSE_PAGES:
+        chunks.append(f"# {page.title}\n{page.content}\n")
+    full = "\n\n".join(chunks)
+    if len(full) > max_chars:
+        return full[:max_chars] + "\n\n[... truncated ...]"
+    return full
+
+
+@app.post("/api/generate-updates", response_model=GenerateUpdatesResponse)
+def generate_updates(payload: GenerateUpdatesRequest):
+    """
+    Ask Gemini to draft an announcement, email, and/or policy update
+    based on a change description, grounded in the course context.
+    """
+    course_context = build_course_context()
 
     prompt = f"""
-You are an AI assistant helping UVA instructors and operations staff keep course
-communications in sync.
+You are an AI teaching operations assistant helping an instructor manage a university course.
 
-Course content:
-\"\"\"{context}\"\"\"
+Course context:
+{course_context}
 
+Audience: {payload.audience}
 Requested change:
-\"\"\"{req.change_description}\"\"\"
+{payload.change_description}
 
-Audience: {req.audience}
+Write clear, concise drafts for each selected channel. Use the course's tone: professional but approachable.
 
-Write concise, professional text suitable for higher-education courses.
+Return your answer in this JSON structure, with plain text (no markdown) in each field:
 
-1) Draft a Canvas-style announcement (with a short title and 1–3 short paragraphs).
-2) Draft an email body with the same information (no need to repeat the subject).
-3) Draft a policy/syllabus snippet that could replace the relevant section.
-
-Return your answer in this JSON format:
 {{
-  "announcement": "announcement text here...",
-  "email": "email text here...",
-  "policy_snippet": "policy text here..."
-}}
-"""
+  "announcement": "announcement text here or empty string if not requested",
+  "email": "email text here or empty string if not requested",
+  "policy": "updated policy or Canvas page text here or empty string if not requested"
+}}"""
 
     raw = call_llm(prompt)
 
-    # For demo, just wrap the output. In a real version you'd parse JSON.
-    text = f"LLM OUTPUT JSON:\n{raw}"
+    import json
 
-    return UpdateResponse(
-        announcement=text if "announcement" in req.channels else None,
-        email=text if "email" in req.channels else None,
-        policy_snippet=text if "policy" in req.channels else None,
-    )
+    try:
+        data = json.loads(raw)
+        return GenerateUpdatesResponse(
+            announcement=data.get("announcement") or None,
+            email=data.get("email") or None,
+            policy=data.get("policy") or None,
+        )
+    except Exception:
+        return GenerateUpdatesResponse(
+            announcement=raw.strip() or None,
+            email=None,
+            policy=None,
+        )
+
 
 @app.post("/api/qa", response_model=QAResponse)
-def qa(req: QARequest):
-    context = build_course_context()
+def qa(payload: QARequest):
+    """
+    Answer student questions about the course, grounded in COURSE_PAGES.
+    """
+    course_context = build_course_context()
 
     prompt = f"""
-You are an AI assistant helping answer logistics and policy questions about a course.
-Use ONLY the course content to answer.
+You are an AI assistant for a university course focused on phishing risk and organizational resilience.
 
-Course content:
-\"\"\"{context}\"\"\"
+Course information:
+{course_context}
 
-Question:
-\"\"\"{req.question}\"\"\"
+Student question:
+{payload.question}
 
-Return your answer in JSON:
-{{
-  "answer": "2–4 sentence answer here, based strictly on the content.",
-  "sources": ["Title of page 1", "Title of page 2"]
-}}
+Answer based ONLY on the course information above. If the question cannot be answered from that info, say so and suggest that the student contact the instructor or check the syllabus. Be concise and student-friendly.
 """
 
-    raw = call_llm(prompt)
-    return QAResponse(
-        answer=f"LLM OUTPUT JSON:\n{raw}",
-        sources=["Example source – Syllabus", "Example source – Final Project"],
-    )
+    answer = call_llm(prompt)
+    return QAResponse(answer=answer.strip())
