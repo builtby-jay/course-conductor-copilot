@@ -1,41 +1,57 @@
+from __future__ import annotations
+
 import os
-import json
-from openai import OpenAI
+from typing import Optional
+
+from google import genai  # pip install google-genai
 
 
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.1-mini")
-
-
-def get_client() -> OpenAI:
-    api_key = os.getenv("OPENAI_API_KEY")
+def _get_api_key() -> str:
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        # This makes it very clear what’s wrong if the var isn’t set
         raise RuntimeError(
-            "OPENAI_API_KEY is not set. "
-            "Set it in your shell before running uvicorn, e.g.: "
-            "$env:OPENAI_API_KEY='sk-...' in PowerShell."
+            "GEMINI_API_KEY / GOOGLE_API_KEY not set. "
+            "Set it before running the server."
         )
-    return OpenAI(api_key=api_key)
+    return api_key
+
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+_client: Optional[genai.Client] = None
+
+
+def get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        api_key = _get_api_key()
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 
 def call_llm(prompt: str) -> str:
     """
-    Call OpenAI with a simple text prompt and return the output text.
+    Simple wrapper around Gemini text generation.
+
+    Takes a single prompt string and returns the model's text response.
     """
     client = get_client()
-    response = client.responses.create(
-        model=DEFAULT_MODEL,
-        input=prompt,
+
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
     )
-    return response.output_text
 
+    if hasattr(response, "text") and response.text:
+        return response.text.strip()
 
-def call_llm_json(prompt: str) -> dict:
-    """
-    Same as call_llm, but expects JSON and parses it.
-    """
-    text = call_llm(prompt)
     try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return {"raw": text}
+        candidate = response.candidates[0] # type: ignore
+        parts = getattr(candidate, "content", candidate).parts # type: ignore
+        pieces = []
+        for part in parts:
+            text = getattr(part, "text", None) or part.get("text", "")
+            pieces.append(text)
+        return "\n".join(pieces).strip()
+    except Exception:
+        return str(response)

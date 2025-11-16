@@ -1,9 +1,9 @@
-import os
-from pydantic import BaseModel
+from __future__ import annotations
 
-class Settings(BaseModel):
-    llm_api_key: str | None = os.getenv("LLM_API_KEY")
-    llm_model: str = os.getenv("LLM_MODEL", "gpt-4.1-mini")  # or Claude model name
-    app_name: str = "Course Conductor"
+from typing import List
 
-settings = Settings()
+# Simple CORS origin list – no Pydantic, no BaseSettings needed.
+CORS_ORIGINS: List[str] = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]

@@ -1,27 +1,34 @@
+from __future__ import annotations
+
+from typing import List, Literal
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+
 
 class CoursePage(BaseModel):
     page_id: str
     title: str
     content: str
 
-class IngestRequest(BaseModel):
+
+class IngestPagesRequest(BaseModel):
     pages: List[CoursePage]
 
-class ChangeRequest(BaseModel):
-    change_description: str
-    audience: str = "students"          # "students" | "staff" | "all"
-    channels: List[str] = ["announcement", "email", "policy"]
 
-class UpdateResponse(BaseModel):
-    announcement: Optional[str] = None
-    email: Optional[str] = None
-    policy_snippet: Optional[str] = None
+class GenerateUpdatesRequest(BaseModel):
+    change_description: str
+    audience: str = "students"
+    channels: List[Literal["announcement", "email", "policy"]] = []
+
+
+class GenerateUpdatesResponse(BaseModel):
+    announcement: str | None = None
+    email: str | None = None
+    policy: str | None = None
+
 
 class QARequest(BaseModel):
     question: str
 
+
 class QAResponse(BaseModel):
     answer: str
-    sources: List[str]
